@@ -1,8 +1,8 @@
-const Express = require('express');
+const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-const app = Express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -95,11 +95,12 @@ app.post('/api/cases/:id/action', (req, res) => {
   const targetCase = db.cases.find(c => c.id === id);
   if (!targetCase) return res.status(404).json({ success: false, message: "Case not found" });
 
+  // Save Doctor Exam Record
   db.exams = db.exams.filter(e => e.caseId !== id);
   db.exams.push({
     id: "EX-" + Date.now().toString(36).toUpperCase(),
     caseId: id,
-    doctorId: doctorId || "DOC-101",
+    doctorId,
     findings,
     diagnosis,
     notes,
@@ -117,7 +118,7 @@ app.post('/api/cases/:id/action', (req, res) => {
     db.followups.push({
       id: "FU-" + Date.now().toString(36).toUpperCase(),
       caseId: id,
-      doctorId: doctorId || "DOC-101",
+      doctorId,
       date: fuDate.toISOString(),
       instructions: notes || "Return for review after 3 days",
       status: "PENDING"
@@ -129,8 +130,8 @@ app.post('/api/cases/:id/action', (req, res) => {
     db.referrals.push({
       id: "RF-" + Date.now().toString(36).toUpperCase(),
       caseId: id,
-      doctorId: doctorId || "DOC-101",
-      hospital: hospital || "District Headquarters Hospital, Sambalpur",
+      doctorId,
+      hospital: hospital || "District Hospital",
       reason: reason || diagnosis || targetCase.concern || "Further evaluation required",
       urgency: targetCase.level === 'red' ? 'Urgent' : 'Routine',
       notes,
@@ -234,8 +235,7 @@ main{padding:16px}.hero{background:linear-gradient(135deg,#0f766e,#115e59);color
 @media(max-width:420px){.metricGrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
-<body>
-<div class="app"><div class="shell">
+<body> <div class="app"><div class="shell">
 <header class="top">
 <button class="brand" onclick="App.go('home')"><span class="logo">⚕</span><strong id="appName">AshaCare</strong></button>
 <div class="topRight">
@@ -255,7 +255,6 @@ main{padding:16px}.hero{background:linear-gradient(135deg,#0f766e,#115e59);color
 </nav>
 <div id="toast" class="toast"></div>
 </div></div>
-
 <script>
 const T={
 en:{appName:"AshaCare",tagline:"Pediatric red-flag triage assistant",home:"Home",newAssessment:"New Assessment",records:"Records",startAssessment:"Start New Assessment",todaysCases:"Today's cases",pendingFollowups:"Pending follow-ups",recentAssessments:"Recent assessments",online:"Online",offline:"Offline — will sync later",syncNow:"Sync now",synced:"All records synced",tapToSpeak:"Tap to speak symptoms",listening:"Listening…",orType:"…or type / edit below",quickAdd:"Quick-add common signs",childName:"Child's name (optional)",childAge:"Age (years)",analyze:"Analyze symptoms",analyzing:"Checking against WHO warning signs…",back:"Back",riskRed:"REFER IMMEDIATELY",riskYellow:"MONITOR CLOSELY",riskGreen:"ROUTINE CARE",flaggedBecause:"Flagged because:",possible:"Possible concern:",nextSteps:"Recommended next step",generateReferral:"Generate referral slip",saveMonitor:"Save & set monitoring reminder",newCase:"Start another assessment",nearestFacility:"Nearest district facility",away:"away",shareSlip:"Share with family",printSlip:"Print slip",followUp:"Follow-up reminder",remindIn:"Remind me to check in",days3:"3 days",days7:"7 days",reminderSet:"Reminder set",goHome:"Done — back to home",scanNote:"Hospital staff can scan this code to pull up the full case instantly.",caseId:"Case ID",noSpeechSupport:"Voice input isn't supported in this browser — please type instead.",weekAgo:"2 days ago",qrTitle:"QR Code Generator",qrText:"Enter case information or any text below.",generateQr:"Generate QR",downloadQr:"Download QR",copyQr:"Copy content",qrEmpty:"Enter some text to generate a QR code.",disclaimer:"This tool assists your judgment. It does not diagnose or replace a doctor.",referralSlip:"Referral Slip",childLabel:"Child",symptomsRecorded:"Symptoms recorded",noRecords:"No assessments yet",tapForDetails:"Tap a case to see full details",micDenied:"Microphone permission denied — allow mic access in your browser/site settings and try again.",micNoSpeech:"No speech detected — try again, closer to the mic.",micNetwork:"Voice recognition needs an internet connection — it isn't fully offline in this browser demo.",micNotSecure:"Voice input needs this page opened over https:// (or localhost). It's often blocked when opened as a local file — host it online to test voice.",micGeneric:"Voice input failed — please type instead.",openInBrowser:"Open QR in browser",retryQr:"Retry QR",generatedOn:"Generated",loginTitle:"Worker Access",enterName:"Full Name",enterWorkerId:"Worker / ID Number",enterPin:"Enter Passcode / PIN",loginBtn:"Login & Access",invalidPin:"Invalid passcode / PIN.",missingDetails:"Please enter all required details.",registeredPatients:"Registered Patient Records",savePatient:"Save Patient Data",aboutTitle:"About AshaCare",aboutText1:"AshaCare is a digital frontline screening and clinical decision support companion designed specifically for ASHA workers, community health providers, and rural medical officers.",aboutText2:"By evaluating symptoms against pediatric warning signs and standardized triage pathways (such as fever, pallor, and red-flag indicators), AshaCare helps bridge the gap between early symptom detection and prompt referral to district medical facilities.",aboutText3:"Built with offline resilience, multilingual support (English, Hindi, Odia), and secure worker authentication, AshaCare empowers frontline health workers to deliver safer, faster, and more reliable pediatric care.",doctorReviewTitle:"Doctor & Health Worker Reviews",doc1Name:"Dr. Ananya Roy, MD (Pediatrics)",doc1Role:"District Chief Medical Officer",doc1Review:"AshaCare has streamlined our referral process significantly. Grassroots workers can now accurately flag high-risk symptoms and send properly structured details to our facility.",doc2Name:"Sunita Murmu",doc2Role:"Senior ASHA Supervisor",doc2Review:"The multilingual support and offline capabilities make this app extremely practical for field use. It gives our workers the confidence needed for timely interventions."},
@@ -278,99 +277,14 @@ const dict=[
 ];
 
 function hasProlongedFever(text,found){
-  if(!found.has("fever_general")) return false;
-  const t=text.toLowerCase();
-  const wk=t.match(/(\d+)\s*(week|weeks|हफ्ते|हफ़्ते|हफ्ता|ସପ୍ତାହ)/);
-  if(wk && parseInt(wk[1],10)>=2) return true;
-  const dy=t.match(/(\d+)\s*(day|days|दिन|ଦିନ)/);
-  if(dy && parseInt(dy[1],10)>=14) return true;
-  if(/prolonged|lambe samay|persistent fever|लंबे समय|लगातार बुखार|ଦୀର୍ଘ ସମୟ/.test(t)) return true;
-  return false; 
-}
-
-function triage(text, quickKeys = new Set()) {
-  const found = new Set(quickKeys);
-  const lowerText = text.toLowerCase();
-
-  dict.forEach(([key, synonyms]) => {
-    if (synonyms.some(s => lowerText.includes(s.toLowerCase()))) {
-      found.add(key);
-    }
-  });
-
-  const reasons = [];
-  let level = "green";
-  let concern = null;
-
-  const isProlongedFever = hasProlongedFever(text, found);
-
-  // Clinical Rule Evaluation
-  if (found.has("white_eye")) {
-    level = "red";
-    reasons.push("White pupil / eye reflex detected (Leukocoria indicator)");
-    concern = "Possible Retinoblastoma or Intraocular Pathology";
-  }
-
-  if (found.has("mass")) {
-    level = "red";
-    reasons.push("Unexplained new swelling or palpable abdominal mass");
-    concern = "Possible Solid Tumor / Abdominal Malignancy";
-  }
-
-  if (isProlongedFever && (found.has("pallor") || found.has("weight_loss") || found.has("bleeding"))) {
-    level = "red";
-    reasons.push("Fever lasting >2 weeks combined with pallor, weight loss, or bleeding");
-    concern = "Possible Hematological Malignancy / Leukemia";
-  } else if (isProlongedFever) {
-    level = "red";
-    reasons.push("Fever persisting for more than 2 weeks without clear focus");
-    concern = "Prolonged Unexplained Fever — Urgent Evaluation Required";
-  }
-
-  if (found.has("bleeding") && (found.has("pallor") || found.has("bone_pain"))) {
-    level = "red";
-    reasons.push("Unexplained bleeding/bruising with systemic symptoms");
-    concern = "Possible Severe Thrombocytopenia or Bone Marrow Failure";
-  }
-
-  if (found.has("headache") && found.has("vomiting")) {
-    level = "red";
-    reasons.push("Persistent headache accompanied by vomiting");
-    concern = "Possible Increased Intracranial Pressure / CNS Pathology";
-  }
-
-  if (found.has("bone_pain") && (found.has("pallor") || found.has("weight_loss"))) {
-    level = "red";
-    reasons.push("Persistent bone/joint pain with weight loss or pallor");
-    concern = "Possible Musculoskeletal or Hematological Malignancy";
-  }
-
-  if (level !== "red") {
-    if (found.size >= 2) {
-      level = "yellow";
-      reasons.push("Multiple general symptoms present requiring close clinical review");
-      concern = "Monitor closely; re-evaluate in 3-5 days";
-    } else if (found.size === 1) {
-      level = "yellow";
-      const matchedKey = Array.from(found)[0];
-      reasons.push(`Single potential warning indicator identified: ${matchedKey.replace('_', ' ')}`);
-      concern = "Symptom present; recheck if persistent";
-    } else {
-      level = "green";
-      reasons.push("No pediatric red-flag indicators detected in transcript");
-      concern = "Standard supportive care & routine health checkup";
-    }
-  }
-
-  return { level, concern, re: reasons, matches: Array.from(found) };
-}
-
-function risk(level, t) {
-  const l = (level || 'green').toLowerCase();
-  if (l === 'red') return `<span class="risk red"><span class="dot"></span>${t.riskRed || 'REFER IMMEDIATELY'}</span>`;
-  if (l === 'yellow') return `<span class="risk yellow"><span class="dot"></span>${t.riskYellow || 'MONITOR CLOSELY'}</span>`;
-  return `<span class="risk green"><span class="dot"></span>${t.riskGreen || 'ROUTINE CARE'}</span>`;
-}
+if(!found.has("fever_general"))return false;
+const t=text.toLowerCase();
+const wk=t.match(/(\\d+)\\s*(week|weeks|हफ्ते|हफ़्ते|हफ्ता|ସପ୍ତାହ)/);
+if(wk&&parseInt(wk[1],10)>=2)return true;
+const dy=t.match(/(\\d+)\\s*(day|days|दिन|ଦିନ)/);
+if(dy&&parseInt(dy[1],10)>=14)return true;
+if(/prolonged|lambe samay|persistent fever|लंबे समय|लगातार बुखार|ଦୀର୍ଘ ସମୟ/.test(t))return true;
+return false; }
 
 const QUICK=[
 {key:"fever_general",en:"Fever 3 weeks",hi:"3 हफ्ते बुखार",or:"3 ସପ୍ତାହ ଜ୍ୱର"},
@@ -441,8 +355,9 @@ async init() {
   window.addEventListener('online', () => { App.state.online = true; App.sync(); });
   window.addEventListener('offline', () => { App.state.online = false; App.render(); });
   
-  const remoteData = await API.request('/cases');
-  const remotePatients = await API.request('/patients');
+  // Try fetching backend state
+  const remoteData = await API.request('/api/cases');
+  const remotePatients = await API.request('/api/patients');
   
   if (remoteData && remoteData.success) {
     this.state.online = true;
@@ -502,15 +417,16 @@ async register(){
     return;
   }
 
-  const res = await API.request('/auth/register', 'POST', { name, idNo, role, pin });
+  const res = await API.request('/api/auth/register', 'POST', { name, idNo, role, pin });
   if (res && res.success) {
     this.state.isAuthenticated = true;
     this.state.userName = res.user.name;
     this.state.workerId = res.user.id;
     this.state.userRole = res.user.role;
     this.go('home');
-    this.toast(`Account registered! Logged in as ${role}`);
+    this.toast(\`Account registered! Logged in as \${role}\`);
   } else {
+    // Offline local registration fallback
     const db=cmLoad();
     db.users = db.users || [];
     if(db.users.some(u => u.id.toLowerCase() === idNo.toLowerCase())){
@@ -525,7 +441,7 @@ async register(){
     this.state.workerId = idNo;
     this.state.userRole = role;
     this.go('home');
-    this.toast(`Account registered locally! Logged in as ${role}`);
+    this.toast(\`Account registered locally! Logged in as \${role}\`);
   }
 },
 
@@ -538,18 +454,19 @@ async login(){
     return;
   }
 
-  const res = await API.request('/auth/login', 'POST', { idNo, pin });
+  const res = await API.request('/api/auth/login', 'POST', { idNo, pin });
   if (res && res.success) {
     this.state.isAuthenticated = true;
     this.state.userName = res.user.name;
     this.state.workerId = res.user.id;
     this.state.userRole = res.user.role;
     this.go('home');
-    this.toast(`Welcome back, ${res.user.name}`);
-    this.init();
+    this.toast(\`Welcome back, \${res.user.name}\`);
+    this.init(); // Refresh data upon login
     return;
   }
 
+  // Fallback to local user check if offline
   const db=cmLoad();
   db.users = db.users || [];
   const user = db.users.find(u => u.id.toLowerCase() === idNo.toLowerCase());
@@ -560,14 +477,14 @@ async login(){
     this.state.workerId = user.id;
     this.state.userRole = user.role;
     this.go('home');
-    this.toast(`Welcome back, ${user.name}`);
+    this.toast(\`Welcome back, \${user.name}\`);
   } else if (pin === "1234") {
     this.state.isAuthenticated = true;
     this.state.userName = idNo.includes("DOC") ? "Dr. Medical Officer" : "Frontline Worker";
     this.state.workerId = idNo;
     this.state.userRole = idNo.includes("DOC") ? "Medical Officer / Doctor" : "ASHA Worker";
     this.go('home');
-    this.toast(`Demo login successful as ${this.state.userRole}`);
+    this.toast(\`Demo login successful as \${this.state.userRole}\`);
   } else {
     this.toast(res ? res.message : this.t().invalidPin);
   }
@@ -596,14 +513,14 @@ async savePatientData(){
   const history=document.getElementById("pHistory")?.value.trim();
 
   if(!name){this.toast("Patient name required");return;}
-  if(age && (!/^\d+(\.\d+)?$/.test(age) || Number(age)<0 || Number(age)>120)){this.toast("Enter a valid age");return;}
+  if(age && (!/^\\d+(\\.\\d+)?$/.test(age) || Number(age)<0 || Number(age)>120)){this.toast("Enter a valid age");return;}
   
   const pPayload = {
     id: "PAT-" + Math.floor(100 + Math.random() * 900),
     name, age, category, gender, dob, contact, emergency, guardian, address, allergies, bloodGroup, history
   };
 
-  const res = await API.request('/patients', 'POST', pPayload);
+  const res = await API.request('/api/patients', 'POST', pPayload);
   if (res && res.success) {
     this.state.patients.unshift(res.patient);
   } else {
@@ -645,57 +562,10 @@ openRecord(id){
   this.render();
 },
 
-openDoctorCase(id) {
-  this.state.selectedRecordId = id;
-  this.state.screen = 'doctorCase';
-  this.render();
-},
-
-async submitDoctorAction(action) {
-  const id = this.state.selectedRecordId;
-  const findings = document.getElementById("docFindings")?.value.trim();
-  const diagnosis = document.getElementById("docDiagnosis")?.value.trim();
-  const notes = document.getElementById("docNotes")?.value.trim();
-  const hospital = document.getElementById("docHospital")?.value.trim();
-
-  if (!findings && action !== 'CLOSE') {
-    this.toast("Please enter clinical examination findings");
-    return;
-  }
-
-  const payload = {
-    action,
-    findings,
-    diagnosis,
-    notes,
-    hospital,
-    doctorId: this.state.workerId
-  };
-
-  const res = await API.request(`/cases/${id}/action`, 'POST', payload);
-  if (res && res.success) {
-    const idx = this.state.records.findIndex(x => x.id === id);
-    if (idx >= 0) this.state.records[idx] = res.case;
-    this.toast(`Case ${id} updated: ${action}`);
-    this.go('home');
-  } else {
-    const db = cmLoad();
-    const targetCase = (db.cases || []).find(c => c.id === id);
-    if (targetCase) {
-      targetCase.status = action === 'CLOSE' ? 'CLOSED' : action === 'FOLLOW_UP' ? 'FOLLOW_UP' : 'REFERRED';
-      cmSave(db);
-      const idx = this.state.records.findIndex(x => x.id === id);
-      if (idx >= 0) this.state.records[idx] = targetCase;
-    }
-    this.toast(`Action saved locally (${action})`);
-    this.go('home');
-  }
-},
-
 async sync(){
   this.toast("Syncing with server…");
   const local = cmLoad();
-  const res = await API.request('/sync', 'POST', {
+  const res = await API.request('/api/sync', 'POST', {
     cases: local.cases || [],
     patients: local.patients || []
   });
@@ -718,7 +588,6 @@ async sync(){
 
 toast(msg){
   const e=document.getElementById("toast");
-  if(!e) return;
   e.textContent=msg;
   e.style.display="block";
   clearTimeout(this._toast);
@@ -915,7 +784,7 @@ async analyze(){
         patientId:this.state.selectedPatientId||null
       };
 
-      const res = await API.request('/cases', 'POST', rec);
+      const res = await API.request('/api/cases', 'POST', rec);
       if (res && res.success) {
         this.state.records.unshift(res.case);
       } else {
@@ -948,16 +817,16 @@ buildReferralText(){
   const t=this.t(),s=this.state,r=s.result;
   if(!r)return "";
   const lines=[
-    `${t.appName} — ${t.referralSlip}`,
-    `Worker: ${s.userName} (${s.workerId})`,
-    `${t.caseId}: ${s.caseId}`,
-    `${t.generatedOn}: ${new Date().toLocaleString()}`,
-    s.childName?`${t.childLabel}: ${s.childName}${s.childAge?", "+s.childAge:""}`:"", 
-    `${r.level==="red"?t.riskRed:r.level==="yellow"?t.riskYellow:t.riskGreen}`,
-    r.concern?`${t.possible} ${r.concern}`:"",
-    `${t.flaggedBecause} ${r.re.join("; ")}`,
-    `${t.symptomsRecorded}: ${s.transcript}`,
-    `${t.nearestFacility}: District Headquarters Hospital, Sambalpur · 14 km ${t.away}`
+    \`\${t.appName} — \${t.referralSlip}\`,
+    \`Worker: \${s.userName} (\${s.workerId})\`,
+    \`\${t.caseId}: \${s.caseId}\`,
+    \`\${t.generatedOn}: \${new Date().toLocaleString()}\`,
+    s.childName?\`\${t.childLabel}: \${s.childName}\${s.childAge?", "+s.childAge:""}\`:"", 
+    \`\${r.level==="red"?t.riskRed:r.level==="yellow"?t.riskYellow:t.riskGreen}\`,
+    r.concern?\`\${t.possible} \${r.concern}\`:"",
+    \`\${t.flaggedBecause} \${r.re.join("; ")}\`,
+    \`\${t.symptomsRecorded}: \${s.transcript}\`,
+    \`\${t.nearestFacility}: District Hospital · 14 km \${t.away}\`
   ];
   return lines.filter(Boolean).join("\n");
 },
@@ -966,11 +835,11 @@ buildQrPayload(){
   const s=this.state,r=s.result;
   if(!r)return "";
   const riskText=r.level==="red"?"REFER IMMEDIATELY":r.level==="yellow"?"MONITOR CLOSELY":"ROUTINE CARE";
-  return `AshaCare | Case ID: ${s.caseId} | Patient: ${s.childName||"Unnamed child"} | Age: ${s.childAgeLabel||"—"} | Risk: ${riskText} | Symptoms: ${(s.transcript||"").slice(0,280)}`;
+  return \`AshaCare | Case ID: \${s.caseId} | Patient: \${s.childName||"Unnamed child"} | Age: \${s.childAgeLabel||"—"} | Risk: \${riskText} | Symptoms: \${(s.transcript||"").slice(0,280)}\`;
 },
 
 share(){
-  const text=this.buildReferralText()||`AshaCare referral case ${this.state.caseId}${this.state.childName?" — "+this.state.childName:""}`;
+  const text=this.buildReferralText()||\`AshaCare referral case \${this.state.caseId}\${this.state.childName?" — "+this.state.childName:""}\`;
   if(navigator.share)navigator.share({title:"AshaCare Referral Slip",text}).catch(()=>{});
   else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>this.toast("Case information copied"));
   else this.toast("Sharing is not available in this browser");
@@ -1095,7 +964,7 @@ render(){
   c.className="pill "+(s.online?"online":"offline");
 
   const ub=document.getElementById("userBadge");
-  ub.textContent=s.isAuthenticated?`${s.userName.split(' ')[0]} (${s.userRole.split(' ')[0]})`:"🔒 Login";
+  ub.textContent=s.isAuthenticated?\`\${s.userName.split(' ')[0]} (\${s.userRole.split(' ')[0]})\`:"🔒 Login";
   ub.className="pill "+(s.isAuthenticated?"online":"auth");
 
   document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));
@@ -1108,7 +977,7 @@ render(){
   else if(s.screen==="patient")el.innerHTML=this.patientScreen();
   else if(s.screen==="about")el.innerHTML=this.aboutScreen();
   else if(s.screen==="assess")el.innerHTML=this.assess();
-  else if(s.screen==="analyzing")el.innerHTML=`<div class="loader"><div class="spinner"></div><b>${t.analyzing}</b></div>`;
+  else if(s.screen==="analyzing")el.innerHTML=\`<div class="loader"><div class="spinner"></div><b>\${t.analyzing}</b></div>\`;
   else if(s.screen==="result")el.innerHTML=this.result();
   else if(s.screen==="referral")el.innerHTML=this.referral();
   else if(s.screen==="records")el.innerHTML=this.records();
@@ -1131,29 +1000,29 @@ render(){
 
 loginScreen(){
   const t=this.t(), tab=this.state.authTab||"login";
-  return `<div class="loginCard">
+  return \`<div class="loginCard">
   <div class="authTabs">
-  <button class="authTabBtn ${tab==='login'?'active':''}" onclick="App.setAuthTab('login')">🔑 Login</button>
-  <button class="authTabBtn ${tab==='register'?'active':''}" onclick="App.setAuthTab('register')">📝 Register</button>
+  <button class="authTabBtn \${tab==='login'?'active':''}" onclick="App.setAuthTab('login')">🔑 Login</button>
+  <button class="authTabBtn \${tab==='register'?'active':''}" onclick="App.setAuthTab('register')">📝 Register</button>
   </div>
-  ${tab==='login'?`
-  <h2 style="margin:0 0 10px;font-size:18px">🔑 ${t.loginTitle}</h2>
+  \${tab==='login'?\`
+  <h2 style="margin:0 0 10px;font-size:18px">🔑 \${t.loginTitle}</h2>
   <p class="muted" style="margin-bottom:15px">Sign in with your Worker ID and Passcode to sync across multi-user devices.</p>
-  <label class="label">${t.enterWorkerId}</label>
+  <label class="label">\${t.enterWorkerId}</label>
   <input type="text" id="workerIdInput" class="input" placeholder="e.g. ASHA-9021 or DOC-101">
-  <label class="label">${t.enterPin}</label>
+  <label class="label">\${t.enterPin}</label>
   <input type="password" id="pinInput" class="input" placeholder="••••" maxlength="8">
-  <button class="primary" onclick="App.login()">${t.loginBtn}</button>
+  <button class="primary" onclick="App.login()">\${t.loginBtn}</button>
   <div class="muted" style="margin-top:14px;font-size:11px;text-align:center;line-height:1.4;">
   Demo Accounts:<br>
   ASHA: <b>ASHA-9021</b> | Doctor: <b>DOC-101</b><br>(Default PIN: <b>1234</b>)
   </div>
-  `:`
+  \`:\`
   <h2 style="margin:0 0 10px;font-size:18px">📝 New Health Worker Registration</h2>
   <p class="muted" style="margin-bottom:15px">Create a new frontline account to record patient data across devices.</p>
-  <label class="label">${t.enterName}</label>
+  <label class="label">\${t.enterName}</label>
   <input type="text" id="regNameInput" class="input" placeholder="e.g. Priya Sharma">
-  <label class="label">${t.enterWorkerId}</label>
+  <label class="label">\${t.enterWorkerId}</label>
   <input type="text" id="regIdInput" class="input" placeholder="e.g. ASHA-1045 or DOC-202">
   <label class="label">Select User Role</label>
   <select id="regRoleSelect" class="select">
@@ -1166,13 +1035,13 @@ loginScreen(){
   <label class="label">Confirm Passcode / PIN</label>
   <input type="password" id="regConfirmPinInput" class="input" placeholder="Re-enter PIN" maxlength="8">
   <button class="primary" onclick="App.register()">Register Account</button>
-  `}
-  </div>`;
+  \`}
+  </div>\`;
 },
 
 patientScreen(){
   const t=this.t(),pts=this.state.patients;
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
+  return \`<button class="back" onclick="App.go('home')">← \${t.back}</button>
   <div class="card box"><h3 style="margin:0 0 5px;font-size:16px">👤 Register Patient</h3><p class="muted" style="margin:0 0 14px">General patient profile for infants, children, adults and older patients. This is separate from the child screening assessment.</p>
   <label class="label">Full Name</label><input class="input" id="pName" placeholder="Patient Full Name">
   <div class="row"><div><label class="label">Age</label><input class="input" id="pAge" placeholder="Years" inputmode="numeric"></div><div><label class="label">Patient Category</label><select id="pCategory" class="select"><option>Infant / Newborn</option><option>Child</option><option>Adolescent</option><option>Adult</option><option>Older Adult</option></select></div></div>
@@ -1182,38 +1051,38 @@ patientScreen(){
   <label class="label">Address / Village</label><input class="input" id="pAddress" placeholder="Village, block, district">
   <label class="label">Allergies</label><input class="input" id="pAllergies" placeholder="Known allergies or None">
   <label class="label">Medical History / Notes</label><textarea id="pHistory" class="textarea" style="min-height:70px;" placeholder="Previous conditions, medicines, important notes..."></textarea>
-  <button class="primary" onclick="App.savePatientData()">💾 ${t.savePatient}</button></div>
-  <div class="sectionTitle">${t.registeredPatients}</div>${pts.map(p=>`<div class="card box" style="margin-bottom:8px;"><strong>${this.escape(p.name)}</strong> <span class="muted">(${p.id})</span><div class="muted">${this.escape(p.category||'Patient')}, ${this.escape(p.age||'—')} yrs · ${this.escape(p.gender||'—')} · ${this.escape(p.contact||'—')}</div>${p.bloodGroup?`<div class="muted">Blood: ${this.escape(p.bloodGroup)}${p.address?' · '+this.escape(p.address):''}</div>`:''}${p.history?`<div style="font-size:12px;margin-top:4px;color:#334155;">History: ${this.escape(p.history)}</div>`:''}</div>`).join('')}`;
+  <button class="primary" onclick="App.savePatientData()">💾 \${t.savePatient}</button></div>
+  <div class="sectionTitle">\${t.registeredPatients}</div>\${pts.map(p=>\`<div class="card box" style="margin-bottom:8px;"><strong>\${this.escape(p.name)}</strong> <span class="muted">(\${p.id})</span><div class="muted">\${this.escape(p.category||'Patient')}, \${this.escape(p.age||'—')} yrs · \${this.escape(p.gender||'—')} · \${this.escape(p.contact||'—')}</div>\${p.bloodGroup?\`<div class="muted">Blood: \${this.escape(p.bloodGroup)}\${p.address?' · '+this.escape(p.address):''}</div>\`:''}\${p.history?\`<div style="font-size:12px;margin-top:4px;color:#334155;">History: \${this.escape(p.history)}</div>\`:''}</div>\`).join('')}\`;
 },
 
 aboutScreen(){
   const t=this.t();
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
+  return \`<button class="back" onclick="App.go('home')">← \${t.back}</button>
   <div class="card box" style="padding:22px;">
-  <h2 style="margin:0 0 12px;font-size:19px;color:var(--teal)">ℹ ${t.aboutTitle}</h2>
-  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:12px;">${t.aboutText1}</p>
-  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:12px;">${t.aboutText2}</p>
-  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:0;">${t.aboutText3}</p>
+  <h2 style="margin:0 0 12px;font-size:19px;color:var(--teal)">ℹ \${t.aboutTitle}</h2>
+  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:12px;">\${t.aboutText1}</p>
+  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:12px;">\${t.aboutText2}</p>
+  <p style="font-size:13px;line-height:1.6;color:#334155;margin-bottom:0;">\${t.aboutText3}</p>
   </div>
   <div class="doctor-review-card">
-  <h3 style="margin:0 0 15px;font-size:16px;color:var(--teal)">🩺 ${t.doctorReviewTitle}</h3>
+  <h3 style="margin:0 0 15px;font-size:16px;color:var(--teal)">🩺 \${t.doctorReviewTitle}</h3>
   <div class="doctor-grid">
   <img src="https://images.unsplash.com/photo-1594824813576-2f63f3f0957b?auto=format&fit=crop&w=200&q=80" alt="Dr. Ananya Roy" class="doctor-avatar">
   <div class="doctor-info">
-  <h4>${t.doc1Name}</h4>
-  <p>${t.doc1Role}</p>
+  <h4>\${t.doc1Name}</h4>
+  <p>\${t.doc1Role}</p>
   </div>
   </div>
-  <div class="review-quote">"${t.doc1Review}"</div>
+  <div class="review-quote">"\${t.doc1Review}"</div>
   <hr style="border:0;border-top:1px solid #eef2f7;margin:18px 0;">
   <div class="doctor-grid"> <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80" alt="Sunita Murmu" class="doctor-avatar">
   <div class="doctor-info">
-  <h4>${t.doc2Name}</h4>
-  <p>${t.doc2Role}</p>
+  <h4>\${t.doc2Name}</h4>
+  <p>\${t.doc2Role}</p>
   </div>
   </div>
-  <div class="review-quote">"${t.doc2Review}"</div>
-  </div>`;
+  <div class="review-quote">"\${t.doc2Review}"</div>
+  </div>\`;
 },
 
 home(){
@@ -1221,7 +1090,7 @@ home(){
   const t=this.t(),recs=this.state.records;
   const todaysCases=recs.filter(r=>{try{return new Date(r.when).toDateString()===new Date().toDateString()}catch(e){return false}}).length;
   const pending=recs.filter(r=>r.reminderDays||r.status==="PENDING").length;
-  return `<div class="hero"><div class="eyebrow">${t.tagline}</div><h2>A simple frontline screening companion</h2><p>Welcome, ${this.escape(this.state.userName)} (${this.escape(this.state.workerId)})</p><button onclick="App.newAssessment()">＋ ${t.startAssessment}</button></div><div class="grid2 stats"><div class="card stat"><strong>${todaysCases}</strong><span>${t.todaysCases}</span></div><div class="card stat"><strong>${pending}</strong><span>${t.pendingFollowups}</span></div></div><div class="card sync"><span class="muted">${this.state.online?"✓ "+t.synced:t.offline}</span>${!this.state.online?`<button class="linkBtn" onclick="App.sync()">↻ ${t.syncNow}</button>`:""}</div><div class="sectionTitle">${t.recentAssessments}</div>${recs.length?recs.slice(0,5).map(r=>`<button class="card record" onclick="App.openRecord('${r.id}')"><div><div class="recordName">${this.escape(r.name)}${r.age?", "+this.escape(r.age):""}</div><div class="muted">${r.id} · ${this.timeAgo(r.when,t)}</div></div>${risk(r.level,t)}</button>`).join(""):`<div class="card box muted">${t.noRecords}</div>`}<p class="disclaimer">⚠ ${t.disclaimer}</p>`;
+  return \`<div class="hero"><div class="eyebrow">\${t.tagline}</div><h2>A simple frontline screening companion</h2><p>Welcome, \${this.escape(this.state.userName)} (\${this.escape(this.state.workerId)})</p><button onclick="App.newAssessment()">＋ \${t.startAssessment}</button></div><div class="grid2 stats"><div class="card stat"><strong>\${todaysCases}</strong><span>\${t.todaysCases}</span></div><div class="card stat"><strong>\${pending}</strong><span>\${t.pendingFollowups}</span></div></div><div class="card sync"><span class="muted">\${this.state.online?"✓ "+t.synced:t.offline}</span>\${!this.state.online?\`<button class="linkBtn" onclick="App.sync()">↻ \${t.syncNow}</button>\`:""}</div><div class="sectionTitle">\${t.recentAssessments}</div>\${recs.length?recs.slice(0,5).map(r=>\`<button class="card record" onclick="App.openRecord('\${r.id}')"><div><div class="recordName">\${this.escape(r.name)}\${r.age?", "+this.escape(r.age):""}</div><div class="muted">\${r.id} · \${this.timeAgo(r.when,t)}</div></div>\${risk(r.level,t)}</button>\`).join(""):`<div class="card box muted">\${t.noRecords}</div>\`}<p class="disclaimer">⚠ \${t.disclaimer}</p>\`;
 },
 
 doctorHome(){
@@ -1231,335 +1100,185 @@ doctorHome(){
   const follow=cases.filter(c=>c.status==="FOLLOW_UP").length;
   const referred=cases.filter(c=>c.status==="REFERRED").length;
   const recent=cases.filter(c=>["PENDING","UNDER_REVIEW","FOLLOW_UP"].includes(c.status)).slice().sort((a,b)=>new Date(b.when||b.createdAt)-new Date(a.when||a.createdAt));
-
-  return `<div class="doctorHero">
-    <h2>🩺 Doctor Dashboard</h2>
-    <p style="margin:0;font-size:12px;opacity:0.9">Dr. ${this.escape(this.state.userName)} · ${this.escape(this.state.workerId)}</p>
-  </div>
-  <div class="metricGrid">
-    <div class="metricCard"><strong>${pending}</strong><span>Pending</span></div>
-    <div class="metricCard"><strong>${review}</strong><span>In Review</span></div>
-    <div class="metricCard"><strong>${follow}</strong><span>Follow-up</span></div>
-    <div class="metricCard"><strong>${referred}</strong><span>Referred</span></div>
-  </div>
-  <div class="sectionTitle">Triage Cases Needing Review</div>
-  ${recent.length?recent.map(c=>`
-    <div class="card box" style="margin-bottom:10px;cursor:pointer" onclick="App.openDoctorCase('${c.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <strong style="font-size:15px">${this.escape(c.name || 'Child Case')}</strong>
-          <span class="muted">(${c.id})</span>
-          <div class="muted">${c.age ? c.age + ' · ' : ''}${this.timeAgo(c.when, t)}</div>
-        </div>
-        ${risk(c.level, t)}
-      </div>
-      <div style="font-size:12px;color:#334155;margin-top:8px"><strong>Symptoms:</strong> ${this.escape(c.transcript)}</div>
-      ${c.concern ? `<div style="font-size:11px;color:#b45309;margin-top:4px"><b>Concern:</b> ${this.escape(c.concern)}</div>` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9">
-        <span class="statusPill status-${(c.status||'pending').toLowerCase()}">${c.status || 'PENDING'}</span>
-        <span style="font-size:11px;font-weight:700;color:var(--teal)">Review & Action →</span>
-      </div>
-    </div>
-  `).join(''):`<div class="card box muted">No pending cases needing doctor review.</div>`}`;
+  return \`<div class="doctorHero"><div style="font-size:11px;opacity:.85">MEDICAL OFFICER / DOCTOR</div><h2>Doctor Dashboard</h2><div style="font-size:13px;opacity:.92">Welcome, \${this.escape(this.state.userName)}</div></div>
+  <div class="metricGrid"><div class="metricCard"><strong>\${pending}</strong><span>Pending</span></div><div class="metricCard"><strong>\${review}</strong><span>In review</span></div><div class="metricCard"><strong>\${follow}</strong><span>Follow-ups</span></div><div class="metricCard"><strong>\${referred}</strong><span>Referred</span></div></div>
+  <div class="sectionTitle">Cases needing attention</div>
+  \${recent.length?recent.map(c=>\`<button class="card record" onclick="App.openDoctorCase('\${c.id}')"><div style="min-width:0;text-align:left"><div class="recordName">\${this.escape(c.name||"Unnamed patient")}</div><div class="muted">\${c.id} · \${this.escape(c.registeredBy||"ASHA")}</div><div style="margin-top:7px">\${cmStatusPill(c.status)} \${risk(c.level||"green",t)}</div></div><span style="font-size:20px">›</span></button>\`).join(""):`<div class="card box muted">No pending cases right now.</div>\`}
+  <button class="outline" onclick="App.go('records')">View all case records</button>\`;
 },
 
-doctorCase() {
-  const t = this.t();
-  const c = this.state.records.find(x => x.id === this.state.selectedRecordId);
-  if (!c) return `<button class="back" onclick="App.go('home')">← ${t.back}</button><div class="card box">Case not found.</div>`;
-
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
-  <div class="card box">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <h2 style="margin:0;font-size:18px">${this.escape(c.name)}</h2>
-        <div class="muted">Case ID: ${c.id} · Registered by ${this.escape(c.registeredBy || 'ASHA Worker')}</div>
-      </div>
-      ${risk(c.level, t)}
-    </div>
-    <div class="caseMeta" style="margin-top:12px">
-      <div><small>Age</small><b>${this.escape(c.age || '—')}</b></div>
-      <div><small>Status</small><b class="statusPill status-${(c.status||'pending').toLowerCase()}">${c.status || 'PENDING'}</b></div>
-    </div>
-    <div class="boxTitle" style="margin-top:14px">Symptom Summary</div>
-    <div class="transcriptBox">${this.escape(c.transcript)}</div>
-    ${c.re && c.re.length ? `
-      <div class="boxTitle" style="margin-top:12px">Rule Matches / Risk Factors</div>
-      ${c.re.map(r => `<div class="detailReason"><div class="detailDot"></div><div>${this.escape(r)}</div></div>`).join('')}
-    ` : ''}
-  </div>
-
-  <div class="card box" style="margin-top:12px">
-    <h3 style="margin:0 0 10px;font-size:15px">🩺 Doctor Clinical Evaluation</h3>
-    <label class="label">Clinical Examination Findings</label>
-    <textarea id="docFindings" class="textarea" placeholder="Describe physical exam, pallor status, lymph node enlargement, abdominal palpation..."></textarea>
-    
-    <label class="label">Primary Diagnosis / Impression</label>
-    <input id="docDiagnosis" class="input" placeholder="e.g. Suspected acute leukemia, severe anemia, persistent viral infection...">
-    
-    <label class="label">Doctor Notes / Instructions</label>
-    <textarea id="docNotes" class="textarea" style="min-height:70px" placeholder="Clinical observations, lab orders, medication or referral guidance..."></textarea>
-
-    <label class="label">Referral Facility (if referring)</label>
-    <input id="docHospital" class="input" value="District Headquarters Hospital, Sambalpur">
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-      <button class="primary successBtn" onclick="App.submitDoctorAction('FOLLOW_UP')">📅 Order Follow-up (3 Days)</button>
-      <button class="primary dangerBtn" onclick="App.submitDoctorAction('REFER')">🏥 Urgent Hospital Referral</button>
-    </div>
-    <button class="outline" style="margin-top:8px" onclick="App.submitDoctorAction('CLOSE')">✓ Close Case (Resolved)</button>
-  </div>`;
+openDoctorCase(id){
+  if(this.state.userRole!=="Medical Officer / Doctor"){this.toast("Only a doctor can examine cases");return;}
+  this.state.selectedRecordId=id;
+  this.state.screen="doctorCase";
+  this.render();
 },
 
-assess() {
-  const t = this.t(), pts = this.state.patients || [];
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
-  <div class="card box">
-    <h3 style="margin:0 0 8px;font-size:16px">📋 ${t.newAssessment}</h3>
-    <p class="muted" style="margin-bottom:12px">Record pediatric symptoms using voice or quick symptom chips.</p>
-
-    <label class="label">Select Registered Patient (Optional)</label>
-    <select id="assessmentPatient" class="select">
-      <option value="">-- Direct Field Screening --</option>
-      ${pts.map(p => `<option value="${p.id}">${this.escape(p.name)} (${p.id}, ${p.age || '—'} yrs)</option>`).join('')}
-    </select>
-
-    <div class="row">
-      <div>
-        <label class="label">${t.childName}</label>
-        <input id="childNameInput" class="input" placeholder="e.g. Rohan" value="${this.escape(this.state.childName)}" oninput="App.state.childName=this.value">
-      </div>
-      <div>
-        <label class="label">${t.childAge}</label>
-        <div style="display:flex;gap:6px">
-          <input id="childAgeInput" class="input" placeholder="e.g. 4" value="${this.escape(this.state.childAge)}" oninput="App.state.childAge=this.value" inputmode="numeric">
-          <select id="childAgeUnit" class="select" style="width:90px" onchange="App.state.childAgeUnit=this.value">
-            <option value="months" ${this.state.childAgeUnit==='months'?'selected':''}>Mo</option>
-            <option value="years" ${this.state.childAgeUnit==='years'?'selected':''}>Yr</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <div class="voice">
-      <button class="mic ${this.state.listening?'listening':''}" onclick="App.toggleVoice()">${this.state.listening?'■':'🎙'}</button>
-      <div class="voiceTitle">${this.state.listening?t.listening:t.tapToSpeak}</div>
-    </div>
-
-    <label class="label">${t.orType}</label>
-    <textarea id="transcript" class="textarea" placeholder="Describe symptoms in English, Hindi, or Odia (e.g. fever for 3 weeks, pale skin, joint pain)..." oninput="App.setText(this.value)">${this.escape(this.state.transcript)}</textarea>
-
-    <label class="label">${t.quickAdd}</label>
-    <div class="quick">
-      ${QUICK.map((q, i) => `<button class="${this.state.quickKeys.has(q.key)?'active':''}" onclick="App.addQuickByIndex(${i})">+ ${q[this.state.lang] || q.en}</button>`).join('')}
-    </div>
-
-    <button id="analyzeBtn" class="primary" style="margin-top:16px" onclick="App.analyze()" ${!this.state.transcript.trim()?'disabled':''}>🔍 ${t.analyze}</button>
-  </div>`;
+doctorCase(){
+  if(this.state.userRole!=="Medical Officer / Doctor"){this.state.screen="home";this.toast("Doctor access required");return "";}
+  const c=this.state.records.find(x=>x.id===this.state.selectedRecordId),t=this.t();
+  if(!c)return \`<button class="back" onclick="App.go('home')">← \${t.back}</button><div class="card box muted">Case not found.</div>\`;
+  const ex=this.state.exams.find(x=>x.caseId===c.id),fu=this.state.followups.find(x=>x.caseId===c.id),rf=this.state.referrals.find(x=>x.caseId===c.id);
+  return \`<button class="back" onclick="App.go('home')">← \${t.back}</button>
+  <div class="card refCard"><div class="refHead"><div><div class="muted">Case ID</div><strong>\${this.escape(c.id)}</strong></div>\${risk(c.level||"green",t)}</div>
+  <div class="refBody"><h3 style="margin:0 0 8px">\${this.escape(c.name||"Unnamed patient")}</h3><div class="caseMeta"><div><small>Age</small><b>\${this.escape(c.age||"—")}</b></div><div><small>Status</small>\${cmStatusPill(c.status)}</div><div><small>Registered by</small><b>\${this.escape(c.registeredBy||"—")}</b></div><div><small>Created</small><b>\${new Date(c.when||c.createdAt).toLocaleDateString()}</b></div></div>
+  <div class="examBox"><b>Symptoms recorded</b><div class="transcriptBox" style="margin-top:7px">\${this.escape(c.transcript||"—")}</div></div>
+  \${c.concern?\`<div class="examBox"><b>Screening concern</b><div style="margin-top:5px">\${this.escape(c.concern)}</div></div>\`:""}
+  \${ex?\`<div class="examBox"><b>Doctor examination</b><div class="muted" style="margin-top:6px">Findings: \${this.escape(ex.findings||"—")}</div><div class="muted">Diagnosis / impression: \${this.escape(ex.diagnosis||"—")}</div><div class="muted">Notes: \${this.escape(ex.notes||"—")}</div></div>\`:""}
+  \${fu?\`<div class="examBox" style="background:#ecfdf5"><b>Follow-up</b><div>Return: \${new Date(fu.date).toLocaleDateString()}</div><div class="muted">\${this.escape(fu.instructions||"")}</div></div>\`:""}
+  \${rf?\`<div class="examBox" style="background:#fef2f2"><b>Referral</b><div>\${this.escape(rf.hospital||"Hospital")}</div><div class="muted">\${this.escape(rf.reason||"")}</div></div>\`:""}
+  </div></div>
+  \${this.state.userRole==="Medical Officer / Doctor"&&c.status!=="CLOSED"?\`<div class="card box"><h3 style="margin:0 0 8px">Doctor action</h3><label class="label">Clinical findings</label><textarea id="docFindings" class="textarea" rows="2" placeholder="What did you find on examination?"></textarea><label class="label">Diagnosis / impression</label><textarea id="docDiagnosis" class="textarea" rows="2" placeholder="Doctor's clinical impression"></textarea><label class="label">Doctor notes / advice</label><textarea id="docNotes" class="textarea" rows="2" placeholder="Treatment, advice, instructions"></textarea>
+  <div class="caseActions"><button class="successBtn" onclick="App.closeCase()">✓ Close case</button><button class="blueBtn" onclick="App.setDoctorFollowup()">↻ Follow-up in 3 days</button><button class="dangerBtn" onclick="App.referCase()">↗ Refer to hospital</button></div></div>\`:\`<div class="card box" style="background:#f1f5f9">✓ This case is closed.</div>\`}\`;
 },
 
-result() {
-  const t = this.t(), r = this.state.result;
-  if (!r) return `<button class="back" onclick="App.go('assess')">← ${t.back}</button><div class="card box">No assessment result found.</div>`;
+async doctorAction(action, extra = {}) {
+  const findings = document.getElementById("docFindings")?.value.trim() || "";
+  const diagnosis = document.getElementById("docDiagnosis")?.value.trim() || "";
+  const notes = document.getElementById("docNotes")?.value.trim() || "";
   
-  const bgStyle = r.level === 'red' ? 'background:#fdecea;color:#b3261e;' : r.level === 'yellow' ? 'background:#fff6dc;color:#8a5a00;' : 'background:#e9f7ef;color:#1e6b45;';
+  const payload = {
+    action,
+    findings,
+    diagnosis,
+    notes,
+    doctorId: this.state.workerId,
+    ...extra
+  };
 
-  return `<div class="resultBanner" style="${bgStyle}">
-    <div class="resultIcon">${r.level === 'red' ? '🚨' : r.level === 'yellow' ? '⚠️' : '✅'}</div>
-    <h2 style="margin:0;font-size:20px">${r.level === 'red' ? t.riskRed : r.level === 'yellow' ? t.riskYellow : t.riskGreen}</h2>
-    <div style="font-size:12px;margin-top:6px;opacity:0.9">Case ID: <strong>${this.state.caseId}</strong></div>
-  </div>
-
-  ${r.concern ? `
-    <div class="card box" style="margin-top:12px">
-      <div class="boxTitle">${t.possible}</div>
-      <strong style="color:#b91c1c;font-size:14px">${this.escape(r.concern)}</strong>
-    </div>
-  ` : ''}
-
-  <div class="card box" style="margin-top:12px">
-    <div class="boxTitle">${t.flaggedBecause}</div>
-    ${r.re.map(re => `<div class="reason"><div class="reasonDot" style="background:${r.level==='red'?'#b3261e':'#0f766e'}"></div><div>${this.escape(re)}</div></div>`).join('')}
-  </div>
-
-  <div class="card box" style="margin-top:12px">
-    <div class="boxTitle">${t.symptomsRecorded}</div>
-    <div class="transcriptBox">${this.escape(this.state.transcript)}</div>
-  </div>
-
-  <div class="next">
-    <div class="boxTitle">${t.nextSteps}</div>
-    <div style="font-size:13px;line-height:1.5;margin-top:4px">
-      ${r.level === 'red' ? 'Immediate referral to District Hospital. Share digital referral slip or generate QR code for fast-track intake.' : r.level === 'yellow' ? 'Set a follow-up reminder to re-evaluate symptoms in 3-7 days.' : 'Provide standard care and advise parent to return if new red flags appear.'}
-    </div>
-  </div>
-
-  <div style="margin-top:14px">
-    ${r.level === 'red' ? `<button class="primary dangerBtn" onclick="App.go('referral')">📄 ${t.generateReferral}</button>` : ''}
-    <button class="primary" onclick="App.setReminder(3)">⏰ ${t.remindIn} 3 Days</button>
-    <button class="outline" onclick="App.newAssessment()">＋ ${t.newCase}</button>
-    <button class="outline" onclick="App.go('home')">⌂ ${t.goHome}</button>
-  </div>`;
+  const res = await API.request(\`/api/cases/\${this.state.selectedRecordId}/action\`, 'POST', payload);
+  if (res && res.success) {
+    const idx = this.state.records.findIndex(x => x.id === this.state.selectedRecordId);
+    if (idx >= 0) this.state.records[idx] = res.case;
+  } else {
+    // Offline update fallback
+    const target = this.state.records.find(x => x.id === this.state.selectedRecordId);
+    if (target) {
+      if (action === 'CLOSE') target.status = "CLOSED";
+      if (action === 'FOLLOW_UP') target.status = "FOLLOW_UP";
+      if (action === 'REFER') target.status = "REFERRED";
+    }
+  }
+  this.render();
 },
 
-referral() {
-  const t = this.t(), s = this.state, r = s.result;
-  return `<button class="back" onclick="App.go('result')">← ${t.back}</button>
-  <div class="card box refCard" id="printableReferral">
-    <div class="refHead" style="border-bottom:2px solid #eef2f7;padding-bottom:10px">
-      <div>
-        <strong style="font-size:16px;color:var(--teal)">⚕ ${t.appName}</strong>
-        <div class="muted" style="font-size:10px">${t.referralSlip}</div>
-      </div>
-      ${r ? risk(r.level, t) : ''}
-    </div>
-    <div class="refBody">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:12px">
-        <div><span class="muted">Case ID:</span> <b>${s.caseId}</b></div>
-        <div><span class="muted">Date:</span> <b>${new Date().toLocaleDateString()}</b></div>
-        <div><span class="muted">Child:</span> <b>${this.escape(s.childName || 'Unnamed')}</b></div>
-        <div><span class="muted">Age:</span> <b>${this.escape(s.childAgeLabel || s.childAge || '—')}</b></div>
-        <div><span class="muted">Worker ID:</span> <b>${this.escape(s.workerId)}</b></div>
-        <div><span class="muted">Name:</span> <b>${this.escape(s.userName)}</b></div>
-      </div>
-      ${r && r.concern ? `<div style="background:#fef2f2;border:1px solid #fecaca;padding:8px 10px;border-radius:8px;font-size:12px;color:#991b1b;margin-bottom:10px"><b>Suspected Concern:</b> ${this.escape(r.concern)}</div>` : ''}
-      <div class="boxTitle">${t.symptomsRecorded}</div>
-      <div class="transcriptBox" style="margin-bottom:12px">${this.escape(s.transcript)}</div>
-      <div class="facility">
-        <span style="font-size:20px">🏥</span>
-        <div>
-          <strong style="font-size:13px">${t.nearestFacility}</strong>
-          <div class="muted">District Headquarters Hospital, Sambalpur · 14 km ${t.away}</div>
-        </div>
-      </div>
-      <div class="qrWrap">
-        <img id="refQr" alt="Referral QR Code" style="display:none">
-        <div id="refQrFallback" class="qrFallback">Generating QR...</div>
-        <a id="refQrOpenLink" class="qrOpenDirect" href="#" target="_blank" style="display:none">${t.openInBrowser}</a>
-        <p class="muted" style="font-size:10px;margin-top:6px">${t.scanNote}</p>
-      </div>
-    </div>
-  </div>
-  <div class="actions noPrint">
-    <button onclick="App.share()">📤 ${t.shareSlip}</button>
-    <button onclick="window.print()">🖨 ${t.printSlip}</button>
-  </div>
-  <button class="outline noPrint" style="margin-top:12px" onclick="App.go('home')">⌂ ${t.goHome}</button>`;
+closeCase(){
+  if(this.state.userRole!=="Medical Officer / Doctor"){this.toast("Only a doctor can close a case");return;}
+  this.doctorAction('CLOSE');
+  this.toast("Case closed successfully");
 },
 
-records() {
-  const t = this.t(), recs = this.state.records || [];
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="margin:0;font-size:18px">☷ ${t.records}</h2>
-    <span class="muted" style="font-size:12px">${recs.length} total</span>
-  </div>
-  ${recs.length ? recs.map(r => `
-    <button class="card record" onclick="App.openRecord('${r.id}')">
-      <div>
-        <div class="recordName">${this.escape(r.name || 'Unnamed')}${r.age ? ', ' + this.escape(r.age) : ''}</div>
-        <div class="muted">${r.id} · ${this.timeAgo(r.when, t)} · Status: <b>${r.status || 'PENDING'}</b></div>
-      </div>
-      ${risk(r.level, t)}
-    </button>
-  `).join('') : `<div class="card box muted">${t.noRecords}</div>`}`;
+setDoctorFollowup(){
+  if(this.state.userRole!=="Medical Officer / Doctor"){this.toast("Only a doctor can set follow-up");return;}
+  this.doctorAction('FOLLOW_UP');
+  this.toast("Follow-up set for 3 days");
 },
 
-recordDetail() {
-  const t = this.t();
-  const r = this.state.records.find(x => x.id === this.state.selectedRecordId);
-  if (!r) return `<button class="back" onclick="App.go('records')">← ${t.back}</button><div class="card box">Record not found.</div>`;
-
-  const exam = (this.state.exams || []).find(e => e.caseId === r.id);
-  const followup = (this.state.followups || []).find(f => f.caseId === r.id);
-  const referral = (this.state.referrals || []).find(rf => rf.caseId === r.id);
-
-  return `<button class="back" onclick="App.go('records')">← ${t.back}</button>
-  <div class="card box">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <h2 style="margin:0;font-size:18px">${this.escape(r.name || 'Unnamed')}</h2>
-        <div class="muted">Case ID: ${r.id} · ${this.timeAgo(r.when, t)}</div>
-      </div>
-      ${risk(r.level, t)}
-    </div>
-
-    <div class="caseMeta" style="margin-top:12px">
-      <div><small>Age</small><b>${this.escape(r.age || '—')}</b></div>
-      <div><small>Registered By</small><b>${this.escape(r.registeredBy || 'ASHA Worker')}</b></div>
-      <div><small>Case Status</small><b class="statusPill status-${(r.status||'pending').toLowerCase()}">${r.status || 'PENDING'}</b></div>
-      <div><small>Linked Patient ID</small><b>${this.escape(r.patientId || 'None')}</b></div>
-    </div>
-
-    ${r.concern ? `
-      <div class="boxTitle" style="margin-top:12px">${t.possible}</div>
-      <strong style="color:#b91c1c;font-size:13px">${this.escape(r.concern)}</strong>
-    ` : ''}
-
-    <div class="boxTitle" style="margin-top:12px">${t.symptomsRecorded}</div>
-    <div class="transcriptBox">${this.escape(r.transcript)}</div>
-
-    ${r.re && r.re.length ? `
-      <div class="boxTitle" style="margin-top:12px">${t.flaggedBecause}</div>
-      ${r.re.map(reason => `<div class="detailReason"><div class="detailDot"></div><div>${this.escape(reason)}</div></div>`).join('')}
-    ` : ''}
-  </div>
-
-  ${exam ? `
-    <div class="examBox">
-      <h4 style="margin:0 0 6px;color:var(--teal)">🩺 Doctor Examination Record</h4>
-      <div style="font-size:12px;margin-bottom:4px"><b>Doctor ID:</b> ${this.escape(exam.doctorId)}</div>
-      <div style="font-size:12px;margin-bottom:4px"><b>Findings:</b> ${this.escape(exam.findings || '—')}</div>
-      <div style="font-size:12px;margin-bottom:4px"><b>Diagnosis:</b> ${this.escape(exam.diagnosis || '—')}</div>
-      ${exam.notes ? `<div style="font-size:12px"><b>Notes:</b> ${this.escape(exam.notes)}</div>` : ''}
-    </div>
-  ` : ''}
-
-  ${followup ? `
-    <div class="examBox" style="border-color:#bbf7d0;background:#f0fdf4">
-      <h4 style="margin:0 0 6px;color:#166534">📅 Follow-Up Scheduled</h4>
-      <div style="font-size:12px"><b>Date:</b> ${new Date(followup.date).toLocaleDateString()}</div>
-      <div style="font-size:12px"><b>Instructions:</b> ${this.escape(followup.instructions)}</div>
-    </div>
-  ` : ''}
-
-  ${referral ? `
-    <div class="examBox" style="border-color:#fecaca;background:#fef2f2">
-      <h4 style="margin:0 0 6px;color:#991b1b">🏥 Hospital Referral Issued</h4>
-      <div style="font-size:12px"><b>Hospital:</b> ${this.escape(referral.hospital)}</div>
-      <div style="font-size:12px"><b>Reason:</b> ${this.escape(referral.reason)}</div>
-      <div style="font-size:12px"><b>Urgency:</b> ${this.escape(referral.urgency)}</div>
-    </div>
-  ` : ''}
-
-  ${this.state.userRole === 'Medical Officer / Doctor' ? `
-    <button class="primary" style="margin-top:12px" onclick="App.openDoctorCase('${r.id}')">🩺 Review & Update Clinical Decision</button>
-  ` : ''}
-  <button class="outline" style="margin-top:8px" onclick="App.go('records')">← Back to Records</button>`;
+referCase(){
+  if(this.state.userRole!=="Medical Officer / Doctor"){this.toast("Only a doctor can refer a case");return;}
+  const hospital=prompt("Hospital / facility name","District Hospital");
+  if(hospital===null)return;
+  const reason=prompt("Reason for referral","Further evaluation required");
+  if(reason===null)return;
+  this.doctorAction('REFER', { hospital, reason });
+  this.toast("Referral recorded");
 },
 
-qrGenerator() {
-  const t = this.t();
-  return `<button class="back" onclick="App.go('home')">← ${t.back}</button>
-  <div class="card box qrGenerator">
-    <h3 style="margin:0 0 6px;font-size:16px">▦ ${t.qrTitle}</h3>
-    <p class="muted" style="margin:0 0 12px">${t.qrText}</p>
-    <textarea id="qrInput" class="textarea" placeholder="Type or paste referral data, patient info, or case ID...">${this.escape(this.state.qrText)}</textarea>
-    <div class="smallRow">
-      <button class="primary" onclick="App.generateQr()">${t.generateQr}</button>
-      <button class="outline" onclick="App.copyQr()">${t.copyQr}</button>
-    </div>
-    <div class="qrLarge">
-      <img id="qrImage" alt="Generated QR" style="display:none">
-      <div id="qrEmpty" class="muted" style="font-size:12px;padding:20px;text-align:center">${t.qrEmpty}</div>
-    </div>
-    <a id="qrOpenLink" class="qrOpenDirect" href="#" target="_blank" style="display:none;margin-bottom:10px">${t.openInBrowser}</a>
-    <button class="outline" onclick="App.downloadQr()">📥 ${t.downloadQr}</button>
-  </div>`;
+assess(){
+  const t=this.t(),s=this.state;
+  const patients=(this.state.patients||[]).filter(p=>{const a=Number(p.age);return Number.isFinite(a)&&a>=0&&a<=12});
+  return \`<button class="back" onclick="App.go('home')">← \${t.back}</button><div class="card box" style="background:#f0fdfa;border-color:#99f6e4"><b>🧒 Child Assessment</b><div class="muted" style="margin-top:4px">For newborns, infants and children from 0–12 years only.</div></div><label class="label">Child's name</label><input class="input" value="\${this.escape(s.childName)}" placeholder="\${s.lang==="en"?"Enter child's name":s.lang==="hi"?"बच्चे का नाम दर्ज करें":"ଶିଶୁର ନାମ ଲେଖନ୍ତୁ"}" oninput="App.state.childName=this.value"><div class="row"><div><label class="label">Age</label><input id="childAgeInput" class="input" value="\${this.escape(s.childAge)}" placeholder="0, 2, 3..." inputmode="numeric" oninput="App.state.childAge=this.value"></div><div><label class="label">Age unit</label><select id="childAgeUnit" class="select" onchange="App.state.childAgeUnit=this.value"><option value="months" \${(s.childAgeUnit||"months")==="months"?"selected":""}>Months</option><option value="years" \${(s.childAgeUnit||"months")==="years"?"selected":""}>Years</option></select></div></div>
+  \${patients.length?\`<label class="label">Link to registered patient (optional)</label><select id="assessmentPatient" class="select"><option value="">New / not linked</option>\${patients.map(p=>\`<option value="\${this.escape(p.id)}">\${this.escape(p.name)} · \${this.escape(p.age)} yrs (\${this.escape(p.id)})\</option>\`).join("")}</select>\`:""}<div class="voice"><button class="mic \${s.listening?"listening":""}" onclick="App.toggleVoice()">\${s.listening?"■":"🎙"}</button><div class="voiceTitle">\${s.listening?t.listening:t.tapToSpeak}</div>\${!this.speechSupported()?\`<div class="muted" style="color:#b45309;margin-top:5px">\${t.noSpeechSupport}</div>\`:""}</div><div class="muted" style="margin-bottom:5px">\${t.orType}</div><textarea id="transcript" class="textarea" rows="3" placeholder="\${s.lang==="en"?"e.g. fever for 3 weeks, weight loss, pale":s.lang==="hi"?"उदाहरण: 3 हफ्ते से बुखार, वजन घटना, पीलापन":"ଉଦାହରଣ: 3 ସପ୍ତାହ ଜ୍ୱର, ଓଜନ କମିବା"}" oninput="App.setText(this.value)">\${this.escape(s.transcript)}</textarea><div class="sectionTitle">\${t.quickAdd}</div><div class="quick">\${QUICK.map((q,i)=>\`<button type="button" onclick="App.addQuickByIndex(\${i})">\${q[s.lang]||q.en}</button>\`).join("")}</div><button id="analyzeBtn" class="primary" \${s.transcript.trim()?"":"disabled"} onclick="App.analyze()">⚕ \${t.analyze}</button>\`;
+},
+
+result(){
+  const t=this.t(),r=this.state.result,m=r.level==="red"?["#fdecea","#b3261e","⚠"]:r.level==="yellow"?["#fff6dc","#8a5a00","◷"]:["#e9f7ef","#1e6b45","✓"];
+  const next=this.nextStepText?this.nextStepText(r.level,this.state.lang):"Follow recommended clinical protocol.";
+  return \`<button class="back" onclick="App.go('assess')">← \${t.back}</button><div class="resultBanner" style="background:\${m[0]};color:\${m[1]}"><div class="resultIcon">\${m[2]}</div><div style="font-size:18px;font-weight:850">\${r.level==="red"?t.riskRed:r.level==="yellow"?t.riskYellow:t.riskGreen}</div>\${this.state.childName?\`<div class="muted" style="margin-top:5px">\${this.escape(this.state.childName)}</div>\`:""}</div>\${r.concern?\`<div class="card box"><div class="boxTitle">\${t.possible}</div><p style="margin:0;font-size:14px">\${r.concern}</p></div>\`:""}<div class="card box"><div class="boxTitle">\${t.flaggedBecause}</div>\${r.re.map(x=>\`<div class="reason"><span class="reasonDot" style="background:\${m[1]}"></span>\${x}</div>\`).join("")}</div><div class="next"><div class="boxTitle">\${t.nextSteps}</div><div style="font-size:14px;font-weight:650">\${next}</div></div><button class="\${r.level==="green"?"dark":"primary"}" onclick="App.go('referral')">\${r.level==="green"?"🔔 "+t.saveMonitor:"📍 "+t.generateReferral}</button><button class="outline" onclick="App.newAssessment()">\${t.newCase}</button>\`;
+},
+
+referral(){
+  const t=this.t(),s=this.state,r=s.result,save=r.level==="green"||r.level==="yellow";
+  const daysWord=s.lang==="en"?"days":s.lang==="hi"?"दिन":"ଦିନ";
+  if(save&&!s.reminderDays)return \`<button class="back" onclick="App.go('result')">← \${t.back}</button><div class="card box"><h3 style="margin:0 0 10px;font-size:15px">🔔 \${t.followUp}</h3><div class="muted" style="margin-bottom:12px">\${t.remindIn}</div><div class="grid2"><button class="outline" onclick="App.setReminder(3)">\${t.days3}</button><button class="outline" onclick="App.setReminder(7)">\${t.days7}</button></div></div>\`;
+  const qrPayload=this.buildQrPayload();
+  const qrDirectUrl=this.qrUrl(qrPayload,500);
+  return \`<button class="back" onclick="App.go('result')">← \${t.back}</button>\${save?\`<div class="card box" style="background:#ecfdf5;color:#115e59">✓ \${t.reminderSet}: \${s.reminderDays} \${daysWord}</div>\`:\`<div class="card refCard"><div class="refHead" style="background:\${r.level==="red"?"#fdecea":"#fff6dc"}"><div><div class="muted">\${t.caseId}</div><strong style="color:\${r.level==="red"?"#b3261e":"#8a5a00"}">\${s.caseId}</strong></div>\${risk(r.level,t)}</div><div class="refBody">\${s.childName?\`<b>\${this.escape(s.childName)}</b>\`:""}<div class="facility">📍<div><b>\${t.nearestFacility}</b><div class="muted">District Hospital · 14 km \${t.away}</div></div></div></div><div class="actions"><button onclick="App.share()">↗ \${t.shareSlip}</button><button onclick="window.print()">🖨 \${t.printSlip}</button></div></div>\`}<div class="card box"><h3 style="margin:0 0 10px;font-size:15px">▦ QR Code</h3><div class="qrWrap"><img id="refQr" alt="Scannable referral QR"><div id="refQrFallback" class="qrFallback">QR image could not load right now. Tap below to open it directly, or retry.</div></div><div class="muted" style="text-align:center;margin-top:6px">▦ \${t.scanNote}</div><a id="refQrOpenLink" class="qrOpenDirect" href="\${qrDirectUrl}" target="_blank" rel="noopener">↗ \${t.openInBrowser}</a><button class="outline" onclick="App.retryReferralQr()" style="margin-top:8px">↻ \${t.retryQr}</button></div><button class="dark" onclick="App.newAssessment()">\${t.goHome}</button>\`;
+},
+
+retryReferralQr(){
+  const img=document.getElementById("refQr"),fb=document.getElementById("refQrFallback"),link=document.getElementById("refQrOpenLink");
+  if(img)this.loadQr(img,this.buildQrPayload(),500,fb,link);
+},
+
+records(){
+  const t=this.t(),recs=this.state.records;
+  return \`<div class="sectionTitle">Case Records</div><div class="muted" style="margin:-4px 0 10px">\${recs.length} total cases</div>\${recs.length?recs.map(r=>\`<button class="card record" onclick="App.openRecord('\${r.id}')"><div style="text-align:left"><div class="recordName">\${this.escape(r.name||\"Unnamed patient\")}\${r.age?", "+this.escape(r.age):""}</div><div class="muted">\${r.id} · \${this.escape(r.registeredBy||"—")}</div><div style="margin-top:6px">\${cmStatusPill(r.status||"PENDING")}</div></div>\${risk(r.level||"green",t)}</button>\`).join(""):`<div class="card box muted">No cases yet.</div>\`}<button class="primary" onclick="App.newAssessment()">＋ \${t.newAssessment}</button>\`;
+},
+
+recordDetail(){
+  const t=this.t(),rec=this.state.records.find(r=>r.id===this.state.selectedRecordId);
+  if(!rec)return \`<button class="back" onclick="App.go('records')">← \${t.back}</button><div class="card box muted">Case not found.</div>\`;
+  const ex=this.state.exams.find(x=>x.caseId===rec.id),fu=this.state.followups.find(x=>x.caseId===rec.id),rf=this.state.referrals.find(x=>x.caseId===rec.id);
+  return \`<button class="back" onclick="App.go('records')">← \${t.back}</button><div class="card refHead"><div><div class="muted">\${t.caseId}</div><strong>\${this.escape(rec.id)}</strong></div>\${risk(rec.level||"green",t)}</div><div class="card box"><h3 style="margin:0 0 10px">\${this.escape(rec.name||"Unnamed patient")}</h3>\${cmStatusPill(rec.status||"PENDING")}<div class="caseMeta" style="margin-top:10px"><div><small>Registered by</small><b>\${this.escape(rec.registeredBy||"—")}</b></div><div><small>Created</small><b>\${new Date(rec.when||rec.createdAt).toLocaleDateString()}</b></div></div></div>\${rec.concern?\`<div class="card box"><div class="boxTitle">\${t.possible}</div><p style="margin:0">\${this.escape(rec.concern)}</p></div>\`:""}<div class="card box"><div class="boxTitle">\${t.symptomsRecorded}</div><div class="transcriptBox">\${this.escape(rec.transcript||"—")}</div></div>\${ex?\`<div class="card box"><div class="boxTitle">Doctor examination</div><p>Findings: \${this.escape(ex.findings||"—")}</p><p>Diagnosis: \${this.escape(ex.diagnosis||"—")}</p><p>Notes: \${this.escape(ex.notes||"—")}</p></div>\`:""}\${fu?\`<div class="card box" style="background:#ecfdf5"><b>Follow-up: \${new Date(fu.date).toLocaleDateString()}</b><p>\${this.escape(fu.instructions||"")}</p></div>\`:""}\${rf?\`<div class="card box" style="background:#fef2f2"><b>Referred to: \${this.escape(rf.hospital||"")}</b><p>\${this.escape(rf.reason||"")}</p></div>\`:""}\`;
+},
+
+qrGenerator(){
+  const t=this.t(),s=this.state,defaultText=s.qrText||"";
+  return \`<button class="back" onclick="App.go('home')">← \${t.back}</button><div class="card qrGenerator"><h2 style="margin:0 0 5px;font-size:19px">\${t.qrTitle}</h2><p class="muted" style="margin:0 0 13px">\${t.qrText}</p><textarea id="qrInput" class="textarea" rows="4" placeholder="Example: AshaCare | Case AC-1234 | Risk: RED">\${this.escape(defaultText)}</textarea><div class="smallRow"><button class="primary" onclick="App.generateQr()">\${t.generateQr}</button><button class="outline" onclick="App.copyQr()">\${t.copyQr}</button></div><div class="qrLarge"><img id="qrImage" alt="Generated QR code" style="display:\${defaultText?"block":"none"}" \${defaultText?\`src="\${this.qrUrl(defaultText,500)}"\`:""}><div id="qrEmpty" class="qrHint" style="display:\${defaultText?"none":"block"}">\${t.qrEmpty}</div></div><a id="qrOpenLink" href="#" target="_blank" rel="noopener" class="outline" style="display:none;text-decoration:none;text-align:center;margin-top:8px">Open QR in browser</a><p class="qrHint">The generated QR contains exactly the text you enter. The referral slip automatically creates a QR containing the case ID and risk information.</p><button class="dark" onclick="App.downloadQr()">↓ \${t.downloadQr}</button><button class="outline" onclick="App.openQrNow()">↗ Open QR directly</button></div>\`;
 }
 };
 
-window.addEventListener('DOMContentLoaded', () => { App.init(); });
+function detectSymptoms(text){
+  const lower=(" "+text.toLowerCase()+" ");
+  const found=new Set();
+  dict.forEach(([key,terms])=>{if(terms.some(x=>lower.includes(x.toLowerCase())))found.add(key)});
+  if(hasProlongedFever(text,found))found.add("fever_prolonged");
+  if(found.has("headache")&&found.has("vomiting"))found.add("headache_vomit");
+  return found;
+}
+
+function triage(text,quickKeys){
+  const fromText=detectSymptoms(text);
+  const fromQuick=new Set(quickKeys||[]);
+  const f=new Set([...fromText,...fromQuick]);
+  if(fromQuick.has("fever_general"))f.add("fever_prolonged");
+  if(f.has("headache")&&f.has("vomiting"))f.add("headache_vomit");
+  const has=k=>f.has(k),re=[];let level="green",concern=null;
+  if(has("fever_prolonged")&&has("pallor")&&has("weight_loss")){level="red";concern="Possible leukemia";re.push("Fever lasting more than 2 weeks","Pallor (pale skin) reported","Weight loss reported")}
+  else if(has("white_eye")){level="red";concern="Possible retinoblastoma";re.push("Abnormal white reflection in the eye/pupil")}
+  else if(has("mass")){level="red";concern="Possible solid tumor";re.push("New lump, mass, or swelling reported");if(has("weight_loss"))re.push("Accompanied by weight loss")}
+  else if(has("bleeding")){level="red";concern="Possible leukemia / clotting disorder";re.push("Unusual bleeding or bruising reported");if(has("pallor"))re.push("Accompanied by pallor")}
+  else if(has("headache_vomit")){level="red";concern="Possible brain tumor";re.push("Persistent headache with vomiting / unsteady gait")}
+  else if(has("bone_pain")&&(has("fever_general")||has("pallor")||has("mass"))){level="red";concern="Possible bone tumor or leukemia";re.push("Persistent bone pain reported","Combined with fever, pallor, or swelling")}
+  else if(has("lymph_node")&&(has("fever_prolonged")||has("weight_loss"))){level="yellow";concern="Needs monitoring — possible infection or early lymphoma";re.push("Swollen gland/lymph node not resolving")}
+  else if(has("bone_pain")||has("lymph_node")){level="yellow";concern="Monitor — recheck if it persists beyond 2 weeks";re.push("Symptom present but no other red-flag combination yet")}
+  else if(has("fever_prolonged")||has("weight_loss")||has("fatigue")||has("pallor")){level="yellow";concern="Monitor closely, recheck in a few days";re.push("One warning sign present without a red-flag combination")}
+  else re.push("No red-flag symptoms or combinations matched");
+  return{level,concern,re};
+}
+
+function risk(level,t){
+  const label=level==="red"?t.riskRed:level==="yellow"?t.riskYellow:t.riskGreen;
+  return \`<span class="risk \${level}"><span class="dot"></span>\${label}</span>\`;
+}
+
+function cmStatusLabel(st){
+  const L={
+    en:{PENDING:"Pending doctor review",UNDER_REVIEW:"Under review",FOLLOW_UP:"Follow-up",REFERRED:"Referred",CLOSED:"Closed"},
+    hi:{PENDING:"डॉक्टर की जांच लंबित",UNDER_REVIEW:"जांच में",FOLLOW_UP:"फॉलो-अप",REFERRED:"रेफर किया गया",CLOSED:"बंद"},
+    or:{PENDING:"ଡାକ୍ତରୀ ଯାଞ୍ଚ ବାକି",UNDER_REVIEW:"ଯାଞ୍ଚ ଚାଲିଛି",FOLLOW_UP:"ଫଲୋ-ଅପ୍",REFERRED:"ରେଫର୍ କରାଯାଇଛି",CLOSED:"ବନ୍ଦ"}
+  };
+  return (L[App.state.lang]||L.en)[st]||st;
+}
+
+function cmStatusPill(st){
+  let c={PENDING:"status-pending",UNDER_REVIEW:"status-review",FOLLOW_UP:"status-followup",REFERRED:"status-referred",CLOSED:"status-closed"}[st]||"status-closed";
+  return \`<span class="statusPill \${c}">● \${cmStatusLabel(st)}</span>\`;
+}
+
+// Initial App Boot
+App.init();
 </script>
 </body>
 </html>`;
